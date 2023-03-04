@@ -20,18 +20,17 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 #define BRIGHTNESS_DEFAULT 200
 #define BRIGHTNESS_STEP 20
 #define BRIGHTNESS_ADDRESS 0
-uint8_t brightness = BRIGHTNESS_DEFAULT; // 0-255. provide 150,200,250
+uint8_t brightness = BRIGHTNESS_DEFAULT;
 
 Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 long firstPixelHue = 0;
-void rainbow(int wait) {
+void rainbow() {
   matrix.rainbow(firstPixelHue, 1, 255, brightness, true);
   matrix.show(); // Update matrix with new contents
-  firstPixelHue += 256;
-  if (firstPixelHue >= 5*65536)
-    firstPixelHue = 0;
-//  delay(wait);  // Pause for a moment
+  if (firstPixelHue == 0)
+    firstPixelHue = 5*256*256;
+  firstPixelHue -= 256;
 }
 
 void(* softReset) (void) = 0;
@@ -77,6 +76,7 @@ void pressedS(Button2& btn) {
   state = state_play;
 }
 
+// TODO: remove
 void click(Button2& btn) {
     Serial.println("click!");
     if (btn == buttonU) {
@@ -135,6 +135,7 @@ void button_loop() {
   buttonS.loop();
 }
 
+// TODO: remove
 void colorWipe(uint32_t color, int wait) {
   for(int i=0; i<matrix.numPixels(); i++) { // For each pixel in strip...
     matrix.setPixelColor(i, color);         //  Set pixel's color (in RAM)
@@ -148,7 +149,7 @@ void update_screen() {
 
 void loop() {
   if (state == state_init) {
-    rainbow(10);             // Flowing rainbow cycle along the whole matrix
+    rainbow();
   } else if (state == state_play) {
     update_screen();
   }
