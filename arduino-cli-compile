@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Flags to allow include files in platformio include dir
+CPPFLAGS="-Iinclude"
+
+arduino-cli compile --fqbn arduino:avr:nano --build-property "compiler.cpp.extra_flags=$CPPFLAGS" src

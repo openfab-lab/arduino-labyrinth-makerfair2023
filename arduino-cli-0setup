@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# https://github.com/adafruit/Adafruit_NeoPixel
+arduino-cli lib install "Adafruit NeoPixel"

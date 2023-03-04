@@ -1,0 +1,6 @@
+#!/bin/bash
+
+source ~/.platformio/penv/bin/activate
+#pio pkg update
+pio run
+# deactivate
