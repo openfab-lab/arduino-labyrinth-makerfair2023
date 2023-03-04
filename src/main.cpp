@@ -15,9 +15,11 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG;
 // - NeoPixel matrix's DATA-IN should pass through a 300-500 OHM RESISTOR.
 #define LED_PIN    7
 #define LED_COUNT 64
-#define DEFAULT_BRIGHTNESS 200
+#define BRIGHTNESS_MIN 80
+#define BRIGHTNESS_DEFAULT 200
+#define BRIGHTNESS_STEP 20
 #define BRIGHTNESS_ADDRESS 0
-uint8_t brightness = DEFAULT_BRIGHTNESS; // 0-255. provide 150,200,250
+uint8_t brightness = BRIGHTNESS_DEFAULT; // 0-255. provide 150,200,250
 
 Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -29,6 +31,37 @@ void rainbow(int wait) {
   if (firstPixelHue >= 5*65536)
     firstPixelHue = 0;
 //  delay(wait);  // Pause for a moment
+}
+
+void(* softReset) (void) = 0;
+
+void setup_pressedG(Button2& btn) {
+  Serial.println("GO!");
+
+  if (buttonU.isPressed()) {
+  Serial.println("+U");
+    if ((uint16_t)brightness + BRIGHTNESS_STEP <= 255){
+      brightness += BRIGHTNESS_STEP;
+    } else {
+      brightness = 255;
+    }
+    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
+    Serial.print("brightness:");
+    Serial.println(brightness);
+  }
+  if (buttonD.isPressed()) {
+    if ((uint16_t)brightness - BRIGHTNESS_STEP >= BRIGHTNESS_MIN){
+      brightness -= BRIGHTNESS_STEP;
+    } else {
+      brightness = BRIGHTNESS_MIN;
+    }
+    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
+    Serial.print("brightness:");
+    Serial.println(brightness);
+  }
+  if (buttonL.isPressed()) {
+    softReset();
+  }
 }
 
 void click(Button2& btn) {
@@ -46,17 +79,7 @@ void click(Button2& btn) {
     }
 }
 
-void setup() {
-  Serial.begin(115200);
-  brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
-  if (brightness == 0) {
-    brightness = DEFAULT_BRIGHTNESS;
-    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
-  }
-  matrix.begin();
-  matrix.show();            // Turn OFF all pixels ASAP
-  matrix.setBrightness(brightness);
-
+void button_setup() {
   buttonU.setDebounceTime(DEBOUNCE_TIME);
   buttonU.begin(BUTTON_UP_PIN);
   buttonU.setPressedHandler(click);
@@ -71,7 +94,20 @@ void setup() {
   buttonR.setPressedHandler(click);
   buttonG.setDebounceTime(DEBOUNCE_TIME);
   buttonG.begin(BUTTON_GO_PIN);
-  buttonG.setPressedHandler(click);
+  buttonG.setPressedHandler(setup_pressedG);
+}
+
+void setup() {
+  Serial.begin(115200);
+  brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
+  if (brightness < BRIGHTNESS_MIN) {
+    brightness = BRIGHTNESS_DEFAULT;
+    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
+  }
+  matrix.begin();
+  matrix.show();            // Turn OFF all pixels ASAP
+  matrix.setBrightness(brightness);
+  button_setup();
   Serial.println("Started...");
 }
 
