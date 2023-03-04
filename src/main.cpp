@@ -48,7 +48,10 @@ void pressedG(Button2& btn) {
     softReset();
   }
   if (state == state_init) {
-    if (buttonU.isPressed()) {
+    if (buttonR.isPressed() && buttonU.isPressed() &&
+    (! buttonD.isPressed()) && (! buttonL.isPressed())) {
+      state = state_play;
+    } else if (buttonU.isPressed()) {
       if ((uint16_t)brightness + BRIGHTNESS_STEP <= 255){
         brightness += BRIGHTNESS_STEP;
       } else {
@@ -57,8 +60,7 @@ void pressedG(Button2& btn) {
       EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
   //    Serial.print("brightness:");
   //    Serial.println(brightness);
-    }
-    if (buttonD.isPressed()) {
+    } else if (buttonD.isPressed()) {
       if ((uint16_t)brightness - BRIGHTNESS_STEP >= BRIGHTNESS_MIN){
         brightness -= BRIGHTNESS_STEP;
       } else {
@@ -67,9 +69,6 @@ void pressedG(Button2& btn) {
       EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
   //    Serial.print("brightness:");
   //    Serial.println(brightness);
-    }
-    if (buttonR.isPressed()) {
-      state = state_play;
     }
   }
 }
