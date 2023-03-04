@@ -7,7 +7,8 @@
 #define BUTTON_LEFT_PIN   4
 #define BUTTON_RIGHT_PIN  5
 #define BUTTON_GO_PIN     6
-Button2 buttonU, buttonD, buttonL, buttonR, buttonG;
+#define BUTTON_START_PIN  8 // grounded reeds
+Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 
 #include <Adafruit_NeoPixel.h>
 // NEOPIXEL BEST PRACTICES for most reliable operation:
@@ -35,33 +36,46 @@ void rainbow(int wait) {
 
 void(* softReset) (void) = 0;
 
-void setup_pressedG(Button2& btn) {
-  Serial.println("GO!");
+enum stateType {
+  state_init,
+  state_play,
+};
 
-  if (buttonU.isPressed()) {
-  Serial.println("+U");
-    if ((uint16_t)brightness + BRIGHTNESS_STEP <= 255){
-      brightness += BRIGHTNESS_STEP;
-    } else {
-      brightness = 255;
-    }
-    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
-    Serial.print("brightness:");
-    Serial.println(brightness);
-  }
-  if (buttonD.isPressed()) {
-    if ((uint16_t)brightness - BRIGHTNESS_STEP >= BRIGHTNESS_MIN){
-      brightness -= BRIGHTNESS_STEP;
-    } else {
-      brightness = BRIGHTNESS_MIN;
-    }
-    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
-    Serial.print("brightness:");
-    Serial.println(brightness);
-  }
+stateType state = state_init;
+
+void pressedG(Button2& btn) {
   if (buttonL.isPressed()) {
     softReset();
   }
+  if (state == state_init) {
+    if (buttonU.isPressed()) {
+      if ((uint16_t)brightness + BRIGHTNESS_STEP <= 255){
+        brightness += BRIGHTNESS_STEP;
+      } else {
+        brightness = 255;
+      }
+      EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
+  //    Serial.print("brightness:");
+  //    Serial.println(brightness);
+    }
+    if (buttonD.isPressed()) {
+      if ((uint16_t)brightness - BRIGHTNESS_STEP >= BRIGHTNESS_MIN){
+        brightness -= BRIGHTNESS_STEP;
+      } else {
+        brightness = BRIGHTNESS_MIN;
+      }
+      EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
+  //    Serial.print("brightness:");
+  //    Serial.println(brightness);
+    }
+    if (buttonR.isPressed()) {
+      state = state_play;
+    }
+  }
+}
+
+void pressedS(Button2& btn) {
+  state = state_play;
 }
 
 void click(Button2& btn) {
@@ -74,8 +88,6 @@ void click(Button2& btn) {
       Serial.println("LEFT");
     } else if (btn == buttonR) {
       Serial.println("RIGHT");
-    } else if (btn == buttonG) {
-      Serial.println("GO");
     }
 }
 
@@ -94,10 +106,14 @@ void button_setup() {
   buttonR.setPressedHandler(click);
   buttonG.setDebounceTime(DEBOUNCE_TIME);
   buttonG.begin(BUTTON_GO_PIN);
-  buttonG.setPressedHandler(setup_pressedG);
+  buttonG.setPressedHandler(pressedG);
+  buttonS.setDebounceTime(DEBOUNCE_TIME);
+  buttonS.begin(BUTTON_START_PIN);
+  buttonS.setPressedHandler(pressedS);
 }
 
 void setup() {
+  state = state_init;
   Serial.begin(115200);
   brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
   if (brightness < BRIGHTNESS_MIN) {
@@ -117,9 +133,25 @@ void button_loop() {
   buttonL.loop();
   buttonR.loop();
   buttonG.loop();
+  buttonS.loop();
+}
+
+void colorWipe(uint32_t color, int wait) {
+  for(int i=0; i<matrix.numPixels(); i++) { // For each pixel in strip...
+    matrix.setPixelColor(i, color);         //  Set pixel's color (in RAM)
+    matrix.show();                          //  Update strip to match
+  }
+}
+
+void update_screen() {
+  colorWipe(matrix.Color(255,   0,   0), 10); // Red
 }
 
 void loop() {
-  rainbow(10);             // Flowing rainbow cycle along the whole matrix
+  if (state == state_init) {
+    rainbow(10);             // Flowing rainbow cycle along the whole matrix
+  } else if (state == state_play) {
+    update_screen();
+  }
   button_loop();
 }
