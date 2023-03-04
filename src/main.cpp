@@ -1,55 +1,89 @@
+#include <EEPROM.h>
+
 #include <Button2.h>
+#define DEBOUNCE_TIME    40
+#define BUTTON_UP_PIN     2
+#define BUTTON_DOWN_PIN   3
+#define BUTTON_LEFT_PIN   4
+#define BUTTON_RIGHT_PIN  5
+#define BUTTON_GO_PIN     6
+Button2 buttonU, buttonD, buttonL, buttonR, buttonG;
 
-// A basic everyday NeoPixel matrix test program.
-
+#include <Adafruit_NeoPixel.h>
 // NEOPIXEL BEST PRACTICES for most reliable operation:
 // - Add 1000 uF CAPACITOR between NeoPixel matrix's + and - connections.
 // - NeoPixel matrix's DATA-IN should pass through a 300-500 OHM RESISTOR.
-
-#include <Adafruit_NeoPixel.h>
 #define LED_PIN    7
 #define LED_COUNT 64
+#define DEFAULT_BRIGHTNESS 200
+#define BRIGHTNESS_ADDRESS 0
+uint8_t brightness = DEFAULT_BRIGHTNESS; // 0-255. provide 150,200,250
 
 Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-// Argument 1 = Number of pixels in NeoPixel matrix
-// Argument 2 = Arduino pin number (most are valid)
-// Argument 3 = Pixel type flags, add together as needed:
-//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
-//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
-//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
-//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-//   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 
-
-
+long firstPixelHue = 0;
 void rainbow(int wait) {
-  // Hue of first pixel runs 5 complete loops through the color wheel.
-  // Color wheel has a range of 65536 but it's OK if we roll over, so
-  // just count from 0 to 5*65536. Adding 256 to firstPixelHue each time
-  // means we'll make 5*65536/256 = 1280 passes through this loop:
-  for(long firstPixelHue = 0; firstPixelHue < 5*65536; firstPixelHue += 256) {
-    // matrix.rainbow() can take a single argument (first pixel hue) or
-    // optionally a few extras: number of rainbow repetitions (default 1),
-    // saturation and value (brightness) (both 0-255, similar to the
-    // ColorHSV() function, default 255), and a true/false flag for whether
-    // to apply gamma correction to provide 'truer' colors (default true).
-    matrix.rainbow(firstPixelHue);
-    // Above line is equivalent to:
-    // matrix.rainbow(firstPixelHue, 1, 255, 255, true);
-    matrix.show(); // Update matrix with new contents
-    delay(wait);  // Pause for a moment
-  }
+  matrix.rainbow(firstPixelHue, 1, 255, brightness, true);
+  matrix.show(); // Update matrix with new contents
+  firstPixelHue += 256;
+  if (firstPixelHue >= 5*65536)
+    firstPixelHue = 0;
+//  delay(wait);  // Pause for a moment
+}
+
+void click(Button2& btn) {
+    Serial.println("click!");
+    if (btn == buttonU) {
+      Serial.println("UP");
+    } else if (btn == buttonD) {
+      Serial.println("DOWN");
+    } else if (btn == buttonL) {
+      Serial.println("LEFT");
+    } else if (btn == buttonR) {
+      Serial.println("RIGHT");
+    } else if (btn == buttonG) {
+      Serial.println("GO");
+    }
 }
 
 void setup() {
-  matrix.begin();           // INITIALIZE NeoPixel matrix object (REQUIRED)
+  Serial.begin(115200);
+  brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
+  if (brightness == 0) {
+    brightness = DEFAULT_BRIGHTNESS;
+    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
+  }
+  matrix.begin();
   matrix.show();            // Turn OFF all pixels ASAP
-  matrix.setBrightness(20); // Set BRIGHTNESS to about 1/5 (max = 255)
+  matrix.setBrightness(brightness);
+
+  buttonU.setDebounceTime(DEBOUNCE_TIME);
+  buttonU.begin(BUTTON_UP_PIN);
+  buttonU.setPressedHandler(click);
+  buttonD.setDebounceTime(DEBOUNCE_TIME);
+  buttonD.begin(BUTTON_DOWN_PIN);
+  buttonD.setPressedHandler(click);
+  buttonL.setDebounceTime(DEBOUNCE_TIME);
+  buttonL.begin(BUTTON_LEFT_PIN);
+  buttonL.setPressedHandler(click);
+  buttonR.setDebounceTime(DEBOUNCE_TIME);
+  buttonR.begin(BUTTON_RIGHT_PIN);
+  buttonR.setPressedHandler(click);
+  buttonG.setDebounceTime(DEBOUNCE_TIME);
+  buttonG.begin(BUTTON_GO_PIN);
+  buttonG.setPressedHandler(click);
+  Serial.println("Started...");
 }
 
+void button_loop() {
+  buttonU.loop();
+  buttonD.loop();
+  buttonL.loop();
+  buttonR.loop();
+  buttonG.loop();
+}
 
 void loop() {
   rainbow(10);             // Flowing rainbow cycle along the whole matrix
+  button_loop();
 }
-
-

@@ -2,3 +2,5 @@
 
 # https://github.com/adafruit/Adafruit_NeoPixel
 arduino-cli lib install "Adafruit NeoPixel"
+# https://github.com/LennartHennigs/Button2
+arduino-cli lib install Button2
