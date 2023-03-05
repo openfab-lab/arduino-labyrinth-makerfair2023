@@ -84,6 +84,7 @@ enum stateType {
 };
 
 stateType state;
+uint8_t demo;
 
 enum dirType {
   dirU,
@@ -217,6 +218,7 @@ void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
   digitalWrite(OUTPUT_PIN, LOW);
   update_state(state_init);
+  demo = 0;
 //  update_state(state_enter_program);
   Serial.begin(115200);
   brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
@@ -294,7 +296,6 @@ void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
 }
 
 void pathred(bool on=true) {
-  // TODO: animate transition
   for (uint8_t i=0; i<8; i++)
     for (uint8_t j=0; j<5; j++)
       if (mappath[i][j])
@@ -381,63 +382,85 @@ void play() {
   digitalWrite(OUTPUT_PIN, HIGH);
 }
 
+void update_screen_state_init() {
+  switch(demo) {
+    case 0:
+      // black screen
+      break;
+    case 1:
+      rainbow();
+      break;
+  }
+}
+
 uint8_t fade = FADE_MIN;
 bool fadeUp = true;
-void update_screen() {
+void update_screen_state_program() {
   unsigned long now = millis();
-  if (state == state_program) {
-    // fade green on start pixel
-    strip.setPixelColor(getmapN(XSTART, YSTART), green(fade));
-    strip.show();
-    fadeUp ? fade++ : fade--;
-    if (fade == 255) fadeUp = false;
-    if (fade == FADE_MIN ) fadeUp = true;
-    // cursor
-    if ((barPos <= 8) && (now - barTime > BAR_BLINK)) {
-      strip.setPixelColor(getbarN(barPos), blue(barUp ? 255 : 0));
-      barTime = now;
-      barUp = !barUp;
+  // fade green on start pixel
+  strip.setPixelColor(getmapN(XSTART, YSTART), green(fade));
+  strip.show();
+  fadeUp ? fade++ : fade--;
+  if (fade == 255) fadeUp = false;
+  if (fade == FADE_MIN ) fadeUp = true;
+  // cursor
+  if ((barPos <= 8) && (now - barTime > BAR_BLINK)) {
+    strip.setPixelColor(getbarN(barPos), blue(barUp ? 255 : 0));
+    barTime = now;
+    barUp = !barUp;
+  }
+  if ((now - stateTime) > TIMEOUT) {
+    softReset();
+  }
+}
+
+void update_screen_state_fail() {
+  unsigned long now = millis();
+  if ((now - stateTime) < FAIL_REPLAY_TIME) {
+    if ((now - pathTime > PATHRED_BLINK)) {
+      pathred(pathUp);
+      pathTime = now;
+      pathUp = !pathUp;
     }
-    if ((now - stateTime) > TIMEOUT) {
-      softReset();
+  } else {
+    update_state(state_enter_program);
+  }
+}
+
+void update_screen_state_success() {
+  unsigned long now = millis();
+  if ((now - stateTime) < SUCCESS_RAINBOW_TIME) {
+    if ((now - pathTime > PATHGREEN_BLINK)) {
+      pathgreen();
+      pathTime = now;
     }
-  } else if (state == state_success) {
-    if ((now - stateTime) < SUCCESS_RAINBOW_TIME) {
-      if ((now - pathTime > PATHGREEN_BLINK)) {
-        pathgreen();
-        pathTime = now;
-      }
-    } else if ((now - stateTime) < TIMEOUT) {
-      rainbow();
-    } else {
-      softReset();
-    }
-  } else if (state == state_fail) {
-    if ((now - stateTime) < FAIL_REPLAY_TIME) {
-      if ((now - pathTime > PATHRED_BLINK)) {
-        pathred(pathUp);
-        pathTime = now;
-        pathUp = !pathUp;
-      }
-    } else {
-      update_state(state_enter_program);
-    }
+  } else if ((now - stateTime) < TIMEOUT) {
+    rainbow();
+  } else {
+    softReset();
   }
 }
 
 void loop() {
-  if (state == state_init) {
-    rainbow();
-  } else if (state == state_enter_program) {
-    enter_program();
-  } else if (state == state_program) {
-    update_screen();
-  } else if (state == state_play) {
-    play();
-  } else if (state == state_fail) {
-    update_screen();
-  } else if (state == state_success) {
-    update_screen();
+  switch(state) {
+    case state_init:
+      update_screen_state_init();
+      break;
+    case state_enter_program:
+      enter_program();
+      break;
+    case state_program:
+      update_screen_state_program();
+      break;
+    case state_play:
+      play();
+      break;
+    case state_fail:
+      update_screen_state_fail();
+      break;
+    case state_success:
+      update_screen_state_success();
+      break;
   }
   button_loop();
 }
