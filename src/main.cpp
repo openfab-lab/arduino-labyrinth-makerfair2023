@@ -25,7 +25,8 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 #define BRIGHTNESS_ADDRESS 0
 #define FADE_MIN 20
 #define BAR_BLINK 300
-#define PATH_BLINK 100
+#define PATHRED_BLINK 100
+#define PATHGREEN_BLINK 100
 #define FADE_SKIP 64
 #define PATH_REMANENT 32
 uint8_t brightness = BRIGHTNESS_DEFAULT;
@@ -51,17 +52,17 @@ void rainbow() {
   firstPixelHue -= 256;
 }
 
-uint8_t theaterChase_i = 0;
-void theaterChase(uint32_t color) {
-    strip.clear();
-    for(uint16_t c=theaterChase_i; c<strip.numPixels(); c += 3) {
-      strip.setPixelColor(c, color);
-    }
-    strip.show();
-    theaterChase_i++;
-    if (theaterChase_i==3) theaterChase_i=0;
-    delay(30);
-}
+// uint8_t theaterChase_i = 0;
+// void theaterChase(uint32_t color) {
+//     strip.clear();
+//     for(uint16_t c=theaterChase_i; c<strip.numPixels(); c += 3) {
+//       strip.setPixelColor(c, color);
+//     }
+//     strip.show();
+//     theaterChase_i++;
+//     if (theaterChase_i==3) theaterChase_i=0;
+//     delay(30);
+// }
 
 #define XSTART 0
 #define YSTART 0
@@ -249,6 +250,7 @@ bool mapwall[8][5] = {
 bool mappath[8][5];
 uint8_t x;
 uint8_t y;
+uint8_t pathgreen_pos;
 
 bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
   // if next pos is invalid, we return current pos
@@ -299,6 +301,22 @@ void pathred(bool on=true) {
   strip.show();
 }
 
+void pathgreen() {
+  uint8_t pos = 0;
+  // hacky loop to follow hardcoded correct path
+  strip.setPixelColor(getmapN(0, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(1, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(2, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(3, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(3, 1), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(3, 2), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(2, 2), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(2, 3), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.setPixelColor(getmapN(2, 4), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  strip.show();
+  if (pathgreen_pos++ > 8) pathgreen_pos = 0;
+}
+
 void play() {
   x = XSTART;
   y = YSTART;
@@ -346,9 +364,10 @@ void play() {
     state = state_fail;
     return;
   }
+  pathTime = millis();
   state = state_success;
+  pathgreen_pos = 0;
   digitalWrite(OUTPUT_PIN, HIGH);
-  delay(1000);
 }
 
 uint8_t fade = FADE_MIN;
@@ -367,8 +386,14 @@ void update_screen() {
       barTime = millis();
       barUp = !barUp;
     }
+  } else if (state == state_success) {
+//    theaterChase(strip.Color(brightness/3, brightness/3, brightness/3));
+    if ((millis() - pathTime > PATHGREEN_BLINK)) {
+      pathgreen();
+      pathTime = millis();
+    }
   } else if (state == state_fail) {
-    if ((millis() - pathTime > PATH_BLINK)) {
+    if ((millis() - pathTime > PATHRED_BLINK)) {
       pathred(pathUp);
       pathTime = millis();
       pathUp = !pathUp;
@@ -388,8 +413,7 @@ void loop() {
   } else if (state == state_fail) {
     update_screen();
   } else if (state == state_success) {
-//    theaterChase(strip.Color(brightness, brightness, brightness));
+    update_screen();
   }
   button_loop();
 }
-
