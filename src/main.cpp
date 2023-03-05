@@ -12,7 +12,7 @@ void(* softReset) (void) = 0;
 #define BUTTON_START_PIN  8 // grounded reeds
 #define OUTPUT_PIN        9 // to next game
 Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
-#define DEBUG_BUTTONS 1
+#define DEBUG_BUTTONS 0
 
 #include <Adafruit_NeoPixel.h>
 // NEOPIXEL BEST PRACTICES for most reliable operation:
