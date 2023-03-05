@@ -12,6 +12,7 @@ void(* softReset) (void) = 0;
 #define BUTTON_START_PIN  8 // grounded reeds
 #define OUTPUT_PIN        9 // to next game
 Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
+#define DEBUG_BUTTONS 1
 
 #include <Adafruit_NeoPixel.h>
 // NEOPIXEL BEST PRACTICES for most reliable operation:
@@ -51,18 +52,6 @@ void rainbow() {
   strip.show();
   firstPixelHue -= 256;
 }
-
-// uint8_t theaterChase_i = 0;
-// void theaterChase(uint32_t color) {
-//     strip.clear();
-//     for(uint16_t c=theaterChase_i; c<strip.numPixels(); c += 3) {
-//       strip.setPixelColor(c, color);
-//     }
-//     strip.show();
-//     theaterChase_i++;
-//     if (theaterChase_i==3) theaterChase_i=0;
-//     delay(30);
-// }
 
 #define XSTART 0
 #define YSTART 0
@@ -126,27 +115,32 @@ void program(dirType dir) {
 }
 
 void pressedU(Button2& btn) {
+  if (DEBUG_BUTTONS) {strip.setPixelColor(getmapN(2,4), 255, 0, 0); strip.show();delay(100);};
   if (state == state_program) {
     program(dirU);
   }
 }
 void pressedD(Button2& btn) {
+  if (DEBUG_BUTTONS) {strip.setPixelColor(getmapN(3,4), 255, 0, 0); strip.show();delay(100);};
   if (state == state_program) {
     program(dirD);
   }
 }
 void pressedL(Button2& btn) {
+  if (DEBUG_BUTTONS) {strip.setPixelColor(getmapN(4,4), 255, 0, 0); strip.show();delay(100);};
   if (state == state_program) {
     program(dirL);
   }
 }
 void pressedR(Button2& btn) {
+  if (DEBUG_BUTTONS) {strip.setPixelColor(getmapN(5,4), 255, 0, 0); strip.show();delay(100);};
   if (state == state_program) {
     program(dirR);
   }
 }
 
 void pressedG(Button2& btn) {
+  if (DEBUG_BUTTONS) {strip.setPixelColor(getmapN(6,4), 255, 0, 0); strip.show();delay(100);};
   if (buttonL.isPressed()) {
     softReset();
   }
@@ -303,12 +297,15 @@ void pathred(bool on=true) {
 uint8_t pathgreen_pos;
 
 void pathgreenstep(uint8_t x, uint8_t y, uint8_t pos){
-  strip.setPixelColor(getmapN(x, y), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  uint32_t color = green(PATH_REMANENT);
+  if ((pathgreen_pos > 0) && (pos == pathgreen_pos - 1)) color = green(PATH_REMANENT + (255 - PATH_REMANENT)/3);
+  if (pos == pathgreen_pos    ) color = green(255);
+  if ((pathgreen_pos < 8) && (pos == pathgreen_pos + 1)) color = green(PATH_REMANENT + (255 - PATH_REMANENT)/3);
+  strip.setPixelColor(getmapN(x, y), color);
 }
 void pathgreen() {
   uint8_t pos = 0;
   // hacky loop to follow hardcoded correct path
-  // TODO: smoother
   pathgreenstep(0, 0, pos++);
   pathgreenstep(1, 0, pos++);
   pathgreenstep(2, 0, pos++);
@@ -392,7 +389,6 @@ void update_screen() {
       barUp = !barUp;
     }
   } else if (state == state_success) {
-//    theaterChase(strip.Color(brightness/3, brightness/3, brightness/3));
     if ((millis() - pathTime > PATHGREEN_BLINK)) {
       pathgreen();
       pathTime = millis();
