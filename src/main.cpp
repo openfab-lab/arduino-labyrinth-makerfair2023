@@ -62,6 +62,8 @@ void theaterChase(uint32_t color) {
 
 #define XSTART 0
 #define YSTART 0
+#define XEND 2
+#define YEND 4
 
 uint16_t getbarN(uint8_t pos) {
   if ((pos < 1) || (pos > 8))
@@ -341,6 +343,15 @@ void play() {
       state = state_fail;
       return;
     }
+  }
+  if ((x != XEND) || (y != YEND)) {
+    pathred();
+    // for (uint8_t j=1; j<barPos; j++)
+    //   strip.setPixelColor(getbarN(j), red());
+    strip.setPixelColor(getbarN(barPos-1), red());
+    strip.show();
+    state = state_fail;
+    return;
   }
   state = state_success;
   digitalWrite(OUTPUT_PIN, HIGH);
