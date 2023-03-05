@@ -10,12 +10,13 @@ void(* softReset) (void) = 0;
 #define BUTTON_RIGHT_PIN  5
 #define BUTTON_GO_PIN     6
 #define BUTTON_START_PIN  8 // grounded reeds
+#define OUTPUT_PIN        9 // to next game
 Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 
 #include <Adafruit_NeoPixel.h>
 // NEOPIXEL BEST PRACTICES for most reliable operation:
-// - Add 1000 uF CAPACITOR between NeoPixel matrix's + and - connections.
-// - NeoPixel matrix's DATA-IN should pass through a 300-500 OHM RESISTOR.
+// - Add 1000 uF CAPACITOR between NeoPixel strip's + and - connections.
+// - NeoPixel strip's DATA-IN should pass through a 300-500 OHM RESISTOR.
 #define LED_PIN    7
 #define LED_COUNT 64
 #define BRIGHTNESS_MIN 80
@@ -26,13 +27,25 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 #define BAR_BLINK 300
 uint8_t brightness = BRIGHTNESS_DEFAULT;
 
-Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 uint16_t firstPixelHue = 0;
 void rainbow() {
-  matrix.rainbow(firstPixelHue, 1, 255, brightness, true);
-  matrix.show();
+  strip.rainbow(firstPixelHue, 1, 255, brightness, true);
+  strip.show();
   firstPixelHue -= 256;
+}
+
+uint8_t theaterChase_i = 0;
+void theaterChase(uint32_t color) {
+    strip.clear();
+    for(uint16_t c=theaterChase_i; c<strip.numPixels(); c += 3) {
+      strip.setPixelColor(c, color);
+    }
+    strip.show();
+    theaterChase_i++;
+    if (theaterChase_i==3) theaterChase_i=0;
+    delay(30);
 }
 
 #define XSTART 0
@@ -54,7 +67,9 @@ enum stateType {
   state_init,
   state_enter_program,
   state_program,
-  state_play
+  state_play,
+  state_fail,
+  state_success
 };
 
 stateType state;
@@ -73,8 +88,9 @@ uint8_t barPos;
 dirType bar[8];
 
 void enter_program() {
-  matrix.clear();
-  matrix.show();
+  strip.clear();
+  strip.show();
+  delay(500);
   barPos = 1;
   barUp = true;
   barTime = millis();
@@ -84,7 +100,7 @@ void enter_program() {
 }
 void program(dirType dir) {
   if (barPos <= 8) {
-    matrix.setPixelColor(getbarN(barPos), 0, 0, brightness);
+    strip.setPixelColor(getbarN(barPos), 0, 0, brightness);
     bar[barPos++ - 1] = dir;
   }
 }
@@ -140,6 +156,10 @@ void pressedG(Button2& btn) {
   } else if (state == state_program) {
     if (barPos > 1)
       state = state_play;
+  } else if (state == state_fail) {
+    softReset();
+  } else if (state == state_success) {
+    softReset();
   }
 }
 
@@ -169,6 +189,8 @@ void button_setup() {
 }
 
 void setup() {
+  pinMode(OUTPUT_PIN, OUTPUT);
+  digitalWrite(OUTPUT_PIN, LOW);
   //state = state_init; FIXME:
   state = state_enter_program;
   Serial.begin(115200);
@@ -177,9 +199,9 @@ void setup() {
     brightness = BRIGHTNESS_DEFAULT;
     EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
   }
-  matrix.begin();
-  matrix.show();            // Turn OFF all pixels ASAP
-//  matrix.setBrightness(brightness);
+  strip.begin();
+  strip.show();            // Turn OFF all pixels ASAP
+//  strip.setBrightness(brightness);
   button_setup();
   Serial.println("Started...");
 }
@@ -198,26 +220,103 @@ bool fadeUp = true;
 void update_screen() {
   if (state == state_program) {
     // fade green on start pixel
-    matrix.setPixelColor(getmapN(XSTART, YSTART), 0, (fade*brightness) >> 8, 0);
-    matrix.show();
+    strip.setPixelColor(getmapN(XSTART, YSTART), 0, (fade*brightness) >> 8, 0);
+    strip.show();
     fadeUp ? fade++ : fade--;
     if (fade == 255) fadeUp = false;
     if (fade == FADE_MIN ) fadeUp = true;
     // cursor
     if ((barPos <= 8) && (millis() - barTime > BAR_BLINK)) {
-      matrix.setPixelColor(getbarN(barPos), 0, 0, barUp ?brightness : 0);
+      strip.setPixelColor(getbarN(barPos), 0, 0, barUp ?brightness : 0);
       barTime = millis();
       barUp = !barUp;
     }
   }
 }
 
-void play() {
-  matrix.clear();
-  for (uint8_t i=1; i < barPos; i++)
-    matrix.setPixelColor(getbarN(i), 0, 0, brightness);
-  matrix.show();
+// map (0,0) is at bottom left. True = wall
+bool mapwall[8][5] = {
+  {0,1,1,0,0},
+  {0,1,1,0,1},
+  {0,1,0,0,0},
+  {0,0,0,1,0},
+  {0,1,0,1,0},
+  {0,1,0,1,0},
+  {0,1,0,0,0},
+  {0,1,1,1,1}
 
+
+  // {0,0,0,0,0,0,0,0},
+  // {1,1,1,0,1,1,1,1},
+  // {1,1,0,0,0,0,0,1},
+  // {0,0,0,1,1,1,0,1},
+  // {0,1,0,0,0,0,0,1}
+};
+
+bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
+  // if next pos is invalid, we return current pos
+  if (dir == dirU) {
+    *nxp = x;
+    *nyp = y < 4 ? y + 1 : y;
+  } else if (dir == dirD) {
+    *nxp = x;
+    *nyp = y > 0 ? y - 1 : y;
+  } else if (dir == dirL) {
+    *nxp = x > 0 ? x - 1 : x;
+    *nyp = y;
+  } else if (dir == dirR) {
+    *nxp = x < 7 ? x + 1 : x;
+    *nyp = y;
+  }
+  if (mapwall[*nxp][*nyp]) {
+    *nxp = x;
+    *nyp = y;
+  }
+  // true if new pos, false if error
+  return (*nxp != x)||(*nyp != y);
+}
+
+#define SKIP 64
+void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
+  // fade move
+  for (uint16_t i=0; i<256; i+=1) {
+    strip.setPixelColor(getmapN(x, y), 0, (uint8_t)(((255-i)*brightness) >> 8), 0);
+    if (i > SKIP) {
+      strip.setPixelColor(getmapN(next_x, next_y), 0, (uint8_t)((i-SKIP)*brightness >> 8), 0);
+    }
+    strip.show();
+  }
+  for (uint16_t i=0; i<SKIP; i+=1) {
+    strip.setPixelColor(getmapN(next_x, next_y), 0, (uint8_t)((i+256-SKIP)*brightness >> 8), 0);
+    strip.show();
+  }
+}
+
+void play() {
+  uint8_t x = XSTART;
+  uint8_t y = YSTART;
+  strip.clear();
+  for (uint8_t i=1; i < barPos; i++)
+    strip.setPixelColor(getbarN(i), 0, 0, brightness);
+  strip.setPixelColor(getmapN(x, y), 0, brightness, 0);
+  strip.show();
+  for (uint8_t i=0; i < 8; i++) {
+    uint8_t next_x, next_y;
+    if ((bar[i] != dirEmpty) && (next_pos(x, y, bar[i], &next_x, &next_y))) {
+        move(x,y,next_x, next_y);
+        x = next_x;
+        y = next_y;
+    } else {
+      strip.setPixelColor(getmapN(x, y), brightness, 0, 0);
+      strip.setPixelColor(getbarN(i+1), brightness, 0, 0);
+      strip.show();
+      state = state_fail;
+      return;
+    }
+  }
+  state = state_success;
+  digitalWrite(OUTPUT_PIN, HIGH);
+  delay(1000);
 }
 
 void loop() {
@@ -229,6 +328,9 @@ void loop() {
     update_screen();
   } else if (state == state_play) {
     play();
+  } else if (state == state_fail) {
+  } else if (state == state_success) {
+//    theaterChase(strip.Color(brightness, brightness, brightness));
   }
   button_loop();
 }
