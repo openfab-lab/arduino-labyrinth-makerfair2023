@@ -29,6 +29,18 @@ uint8_t brightness = BRIGHTNESS_DEFAULT;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
+uint32_t red(uint8_t intensity = 255) {
+  return strip.Color((intensity*brightness) >> 8, 0, 0);
+}
+
+uint32_t green(uint8_t intensity = 255) {
+  return strip.Color(0, (intensity*brightness) >> 8, 0);
+}
+
+uint32_t blue(uint8_t intensity = 255) {
+  return strip.Color(0, 0, (intensity*brightness) >> 8);
+}
+
 uint16_t firstPixelHue = 0;
 void rainbow() {
   strip.rainbow(firstPixelHue, 1, 255, brightness, true);
@@ -100,7 +112,7 @@ void enter_program() {
 }
 void program(dirType dir) {
   if (barPos <= 8) {
-    strip.setPixelColor(getbarN(barPos), 0, 0, brightness);
+    strip.setPixelColor(getbarN(barPos), blue());
     bar[barPos++ - 1] = dir;
   }
 }
@@ -220,14 +232,14 @@ bool fadeUp = true;
 void update_screen() {
   if (state == state_program) {
     // fade green on start pixel
-    strip.setPixelColor(getmapN(XSTART, YSTART), 0, (fade*brightness) >> 8, 0);
+    strip.setPixelColor(getmapN(XSTART, YSTART), green(fade));
     strip.show();
     fadeUp ? fade++ : fade--;
     if (fade == 255) fadeUp = false;
     if (fade == FADE_MIN ) fadeUp = true;
     // cursor
     if ((barPos <= 8) && (millis() - barTime > BAR_BLINK)) {
-      strip.setPixelColor(getbarN(barPos), 0, 0, barUp ?brightness : 0);
+      strip.setPixelColor(getbarN(barPos), blue(barUp ? 255 : 0));
       barTime = millis();
       barUp = !barUp;
     }
@@ -273,14 +285,14 @@ bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
 void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
   // fade move
   for (uint16_t i=0; i<256; i+=1) {
-    strip.setPixelColor(getmapN(x, y), 0, (uint8_t)(((255-i)*brightness) >> 8), 0);
+    strip.setPixelColor(getmapN(x, y), green((uint8_t)(255-i)));
     if (i > SKIP) {
-      strip.setPixelColor(getmapN(next_x, next_y), 0, (uint8_t)((i-SKIP)*brightness >> 8), 0);
+      strip.setPixelColor(getmapN(next_x, next_y), green((uint8_t)(i-SKIP)));
     }
     strip.show();
   }
   for (uint16_t i=0; i<SKIP; i+=1) {
-    strip.setPixelColor(getmapN(next_x, next_y), 0, (uint8_t)((i+256-SKIP)*brightness >> 8), 0);
+    strip.setPixelColor(getmapN(next_x, next_y), green((uint8_t)(i+256-SKIP)));
     strip.show();
   }
 }
@@ -290,8 +302,8 @@ void play() {
   uint8_t y = YSTART;
   strip.clear();
   for (uint8_t i=1; i < barPos; i++)
-    strip.setPixelColor(getbarN(i), 0, 0, brightness);
-  strip.setPixelColor(getmapN(x, y), 0, brightness, 0);
+    strip.setPixelColor(getbarN(i), blue());
+  strip.setPixelColor(getmapN(x, y), green());
   strip.show();
   for (uint8_t i=0; i < 8; i++) {
     uint8_t next_x, next_y;
@@ -300,8 +312,8 @@ void play() {
         x = next_x;
         y = next_y;
     } else {
-      strip.setPixelColor(getmapN(x, y), brightness, 0, 0);
-      strip.setPixelColor(getbarN(i+1), brightness, 0, 0);
+      strip.setPixelColor(getmapN(x, y), red());
+      strip.setPixelColor(getbarN(i+1), red());
       strip.show();
       state = state_fail;
       return;
