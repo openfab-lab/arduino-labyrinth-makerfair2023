@@ -164,7 +164,9 @@ void pressedG(Button2& btn) {
 }
 
 void pressedS(Button2& btn) {
-  state = state_enter_program;
+  if (state == state_init) {
+    state = state_enter_program;
+  }
 }
 
 void button_setup() {
