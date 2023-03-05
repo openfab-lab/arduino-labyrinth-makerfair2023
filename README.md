@@ -2,20 +2,30 @@
 
 Program a path up to 8 steps (correct one is 8 steps)
 
-* Init undefined (CHANGED => rainbow, hidden buttons commands to set brightness (stored in eeprom) and to start game)
-* Start when input grounded (with reeds from face 2)
-* All buttons = reset (CHANGED => maintain LEFT then press GO)
-* START Led blinking green with fading
-* Bar Led 1 blinking blue (edition cursor)
-* When moves are programmed, Bar Led turns solid and next one blinking
-* undefined extra moves (CHANGED => moves > 8 are ignored)
-* Go: Path Led turns solid, follows moves progressively (CHANGED: smooth moves with fading, old path stays dimmer)
-* Wall: Path becomes blinking red, wrong move in bar becomes red too (CHANGED => and all next moves)
-* Wrong end: path blinking red, 8th move too (CHANGED => no, last stays blue, last move not worse than others)
-* Go without move: ignored
-* Partial path: same as wrong end (CHANGED => but next missing move becomes red)
-* success: turn on extra Led (5V signal to be used to start next game too)
-* undefined end (CHANGED => stays in success/fail state and wait for Go. Go => reset game)
+* Init mode: *TODO* black
+  * hidden buttons commands to set brightness (stored in eeprom) and to start game
+  * *TODO:* cycle demo modes + black with LEFT+GO. Prevent UP/DOWN on black screen
+* Programming mode when input grounded (with reeds from face 2)
+  * Hidden reset: maintain LEFT then press GO
+  * START Led blinking green with fading
+  * Bar Led 1 blinking blue (edition cursor)
+  * When moves are programmed, Bar Led turns solid and next one blinking
+  * Extra moves above 8 are ignored
+  * GO without programmed move: ignored
+  * Timeout reset of 10 min of programming mode
+* Play mode when GO pressed (and moves programmed)
+  * Path Led turns solid, follows moves progressively with smooth fading behind, old path positions stay dimmer
+  * Wall: Path becomes blinking red, wrong move in bar becomes red too, and all next moves
+  * Wrong end: path blinking red, bar stays blue (no single wrong move to point out)
+  * Partial path: path blinking red, next missing move becomes red
+* Success mode:
+  * Turn on extra Led
+  * Animate correct path
+  * Rainbow effect after 4 s
+  * GO: reset
+  * Timeout reset of 10 min
+* Fail mode:
+  * blink path in red a few times then move to programming mode after 3 s
 
 ## Questions
 
@@ -29,9 +39,9 @@ During init phase:
 * maintain UP       then press GO  => brightness up   (and store in eeprom)
 * maintain DOWN     then press GO  => brightness down (and store in eeprom)
 * maintain UP+RIGHT then press GO  => bypass waiting for previous game
-* maintain LEFT     then press GO  => reset
+* maintain LEFT     then press GO  => cycle demos (TODO)
 
-During game:
+During programmation:
 * maintain LEFT     then press GO  => reset
 
 ## Remarks

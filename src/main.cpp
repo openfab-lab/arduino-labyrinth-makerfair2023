@@ -30,6 +30,10 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 #define PATHGREEN_BLINK 100
 #define FADE_SKIP 64
 #define PATH_REMANENT 32
+#define SUCCESS_RAINBOW_TIME 4000
+// 10 mins:
+#define TIMEOUT 600000
+#define FAIL_REPLAY_TIME 3000
 uint8_t brightness = BRIGHTNESS_DEFAULT;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -95,6 +99,12 @@ uint8_t barPos;
 dirType bar[8];
 bool pathUp;
 unsigned long pathTime;
+unsigned long stateTime;
+
+void update_state(stateType new_state) {
+  stateTime = millis();
+  state = new_state;
+}
 
 void enter_program() {
   strip.clear();
@@ -105,7 +115,7 @@ void enter_program() {
   barTime = millis();
   for (uint8_t i=0; i < 8; i++)
     bar[i] = dirEmpty;
-  state = state_program;
+  update_state(state_program);
 }
 void program(dirType dir) {
   if (barPos <= 8) {
@@ -147,7 +157,7 @@ void pressedG(Button2& btn) {
   if (state == state_init) {
     if (buttonR.isPressed() && buttonU.isPressed() &&
     (! buttonD.isPressed()) && (! buttonL.isPressed())) {
-      state = state_enter_program;
+      update_state(state_enter_program);
     } else if (buttonU.isPressed()) {
       if ((uint16_t)brightness + BRIGHTNESS_STEP <= 255){
         brightness += BRIGHTNESS_STEP;
@@ -168,10 +178,9 @@ void pressedG(Button2& btn) {
   //    Serial.println(brightness);
     }
   } else if (state == state_program) {
-    if (barPos > 1)
-      state = state_play;
-  } else if (state == state_fail) {
-    softReset();
+    if (barPos > 1) {
+      update_state(state_play);
+    }
   } else if (state == state_success) {
     softReset();
   }
@@ -179,7 +188,7 @@ void pressedG(Button2& btn) {
 
 void pressedS(Button2& btn) {
   if (state == state_init) {
-    state = state_enter_program;
+    update_state(state_enter_program);
   }
 }
 
@@ -207,8 +216,8 @@ void button_setup() {
 void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
   digitalWrite(OUTPUT_PIN, LOW);
-  state = state_init;
-//  state = state_enter_program;
+  update_state(state_init);
+//  update_state(state_enter_program);
   Serial.begin(115200);
   brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
   if (brightness < BRIGHTNESS_MIN) {
@@ -350,7 +359,7 @@ void play() {
       strip.show();
       pathred();
       pathTime = millis();
-      state = state_fail;
+      update_state(state_fail);
       return;
     }
   }
@@ -363,11 +372,11 @@ void play() {
     pathred();
     strip.show();
     pathTime = millis();
-    state = state_fail;
+    update_state(state_fail);
     return;
   }
   pathTime = millis();
-  state = state_success;
+  update_state(state_success);
   pathgreen_pos = 0;
   digitalWrite(OUTPUT_PIN, HIGH);
 }
@@ -375,6 +384,7 @@ void play() {
 uint8_t fade = FADE_MIN;
 bool fadeUp = true;
 void update_screen() {
+  unsigned long now = millis();
   if (state == state_program) {
     // fade green on start pixel
     strip.setPixelColor(getmapN(XSTART, YSTART), green(fade));
@@ -383,21 +393,34 @@ void update_screen() {
     if (fade == 255) fadeUp = false;
     if (fade == FADE_MIN ) fadeUp = true;
     // cursor
-    if ((barPos <= 8) && (millis() - barTime > BAR_BLINK)) {
+    if ((barPos <= 8) && (now - barTime > BAR_BLINK)) {
       strip.setPixelColor(getbarN(barPos), blue(barUp ? 255 : 0));
-      barTime = millis();
+      barTime = now;
       barUp = !barUp;
     }
+    if ((now - stateTime) > TIMEOUT) {
+      softReset();
+    }
   } else if (state == state_success) {
-    if ((millis() - pathTime > PATHGREEN_BLINK)) {
-      pathgreen();
-      pathTime = millis();
+    if ((now - stateTime) < SUCCESS_RAINBOW_TIME) {
+      if ((now - pathTime > PATHGREEN_BLINK)) {
+        pathgreen();
+        pathTime = now;
+      }
+    } else if ((now - stateTime) < TIMEOUT) {
+      rainbow();
+    } else {
+      softReset();
     }
   } else if (state == state_fail) {
-    if ((millis() - pathTime > PATHRED_BLINK)) {
-      pathred(pathUp);
-      pathTime = millis();
-      pathUp = !pathUp;
+    if ((now - stateTime) < FAIL_REPLAY_TIME) {
+      if ((now - pathTime > PATHRED_BLINK)) {
+        pathred(pathUp);
+        pathTime = now;
+        pathUp = !pathUp;
+      }
+    } else {
+      update_state(state_enter_program);
     }
   }
 }
