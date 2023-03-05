@@ -25,6 +25,9 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 #define BRIGHTNESS_ADDRESS 0
 #define FADE_MIN 20
 #define BAR_BLINK 300
+#define PATH_BLINK 100
+#define FADE_SKIP 64
+#define PATH_REMANENT 32
 uint8_t brightness = BRIGHTNESS_DEFAULT;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -100,6 +103,8 @@ bool barUp;
 unsigned long barTime;
 uint8_t barPos;
 dirType bar[8];
+bool pathUp;
+unsigned long pathTime;
 
 void enter_program() {
   strip.clear();
@@ -229,27 +234,6 @@ void button_loop() {
   buttonS.loop();
 }
 
-uint8_t fade = FADE_MIN;
-bool fadeUp = true;
-void update_screen() {
-  if (state == state_program) {
-    // fade green on start pixel
-    strip.setPixelColor(getmapN(XSTART, YSTART), green(fade));
-    strip.show();
-    fadeUp ? fade++ : fade--;
-    if (fade == 255) fadeUp = false;
-    if (fade == FADE_MIN ) fadeUp = true;
-    // cursor
-    if ((barPos <= 8) && (millis() - barTime > BAR_BLINK)) {
-      strip.setPixelColor(getbarN(barPos), blue(barUp ? 255 : 0));
-      barTime = millis();
-      barUp = !barUp;
-    }
-  } else if (state == state_fail) {
-      // TODO: blinking pathred
-  }
-}
-
 // map (0,0) is at bottom left. True = wall
 bool mapwall[8][5] = {
   {0,1,1,0,0},
@@ -289,31 +273,30 @@ bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
   return (*nxp != x)||(*nyp != y);
 }
 
-#define SKIP 64
-#define REMANENT 32
 void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
   // fade move
   for (uint16_t i=0; i<256; i+=1) {
-    if (255-i >= REMANENT)
+    if (255-i >= PATH_REMANENT)
       strip.setPixelColor(getmapN(x, y), green((uint8_t)(255-i)));
-    if (i > SKIP) {
-      strip.setPixelColor(getmapN(next_x, next_y), green((uint8_t)(i-SKIP)));
+    if (i > FADE_SKIP) {
+      strip.setPixelColor(getmapN(next_x, next_y), green((uint8_t)(i-FADE_SKIP)));
     }
     strip.show();
   }
-  for (uint16_t i=0; i<SKIP; i+=1) {
-    strip.setPixelColor(getmapN(next_x, next_y), green((uint8_t)(i+256-SKIP)));
+  for (uint16_t i=0; i<FADE_SKIP; i+=1) {
+    strip.setPixelColor(getmapN(next_x, next_y), green((uint8_t)(i+256-FADE_SKIP)));
     strip.show();
   }
 }
 
-void pathred() {
+void pathred(bool on=true) {
   // TODO: animate transition
   for (uint8_t i=0; i<8; i++)
     for (uint8_t j=0; j<5; j++)
       if (mappath[i][j])
-        strip.setPixelColor(getmapN(i, j), red(REMANENT));
-  strip.setPixelColor(getmapN(x, y), red());
+        strip.setPixelColor(getmapN(i, j), red(on?PATH_REMANENT:0));
+  strip.setPixelColor(getmapN(x, y), on?red():red(0));
+  strip.show();
 }
 
 void play() {
@@ -336,26 +319,61 @@ void play() {
         y = next_y;
         mappath[x][y]=1;
     } else {
-      pathred();
-      for (uint8_t j=i+1; j<barPos; j++)
-        strip.setPixelColor(getbarN(j), red());
+      if (bar[i] == dirEmpty) {
+        // path too short
+          strip.setPixelColor(getbarN(i+1), red());
+      } else {
+        // error in middle of path
+        for (uint8_t j=i+1; j<barPos; j++)
+          strip.setPixelColor(getbarN(j), red());
+      }
       strip.show();
+      pathred();
+      pathTime = millis();
       state = state_fail;
       return;
     }
   }
   if ((x != XEND) || (y != YEND)) {
-    pathred();
+    //all bar in red?
     // for (uint8_t j=1; j<barPos; j++)
     //   strip.setPixelColor(getbarN(j), red());
-    strip.setPixelColor(getbarN(barPos-1), red());
+    //8th command in red?
+    //strip.setPixelColor(getbarN(barPos-1), red());
+    pathred();
     strip.show();
+    pathTime = millis();
     state = state_fail;
     return;
   }
   state = state_success;
   digitalWrite(OUTPUT_PIN, HIGH);
   delay(1000);
+}
+
+uint8_t fade = FADE_MIN;
+bool fadeUp = true;
+void update_screen() {
+  if (state == state_program) {
+    // fade green on start pixel
+    strip.setPixelColor(getmapN(XSTART, YSTART), green(fade));
+    strip.show();
+    fadeUp ? fade++ : fade--;
+    if (fade == 255) fadeUp = false;
+    if (fade == FADE_MIN ) fadeUp = true;
+    // cursor
+    if ((barPos <= 8) && (millis() - barTime > BAR_BLINK)) {
+      strip.setPixelColor(getbarN(barPos), blue(barUp ? 255 : 0));
+      barTime = millis();
+      barUp = !barUp;
+    }
+  } else if (state == state_fail) {
+    if ((millis() - pathTime > PATH_BLINK)) {
+      pathred(pathUp);
+      pathTime = millis();
+      pathUp = !pathUp;
+    }
+  }
 }
 
 void loop() {
