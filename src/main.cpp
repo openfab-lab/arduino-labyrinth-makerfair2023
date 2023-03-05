@@ -19,7 +19,7 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 // - NeoPixel strip's DATA-IN should pass through a 300-500 OHM RESISTOR.
 #define LED_PIN    7
 #define LED_COUNT 64
-#define BRIGHTNESS_MIN 80
+#define BRIGHTNESS_MIN 32
 #define BRIGHTNESS_DEFAULT 200
 #define BRIGHTNESS_STEP 20
 #define BRIGHTNESS_ADDRESS 0
@@ -243,6 +243,8 @@ void update_screen() {
       barTime = millis();
       barUp = !barUp;
     }
+  } else if (state == state_fail) {
+      // TODO: blinking pathred
   }
 }
 
@@ -259,6 +261,8 @@ bool mapwall[8][5] = {
 };
 
 bool mappath[8][5];
+uint8_t x;
+uint8_t y;
 
 bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
   // if next pos is invalid, we return current pos
@@ -284,7 +288,7 @@ bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
 }
 
 #define SKIP 64
-#define REMANENT 128
+#define REMANENT 32
 void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
   // fade move
   for (uint16_t i=0; i<256; i+=1) {
@@ -301,9 +305,18 @@ void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
   }
 }
 
+void pathred() {
+  // TODO: animate transition
+  for (uint8_t i=0; i<8; i++)
+    for (uint8_t j=0; j<5; j++)
+      if (mappath[i][j])
+        strip.setPixelColor(getmapN(i, j), red(REMANENT));
+  strip.setPixelColor(getmapN(x, y), red());
+}
+
 void play() {
-  uint8_t x = XSTART;
-  uint8_t y = YSTART;
+  x = XSTART;
+  y = YSTART;
   for (uint8_t i=0; i<8; i++)
     for (uint8_t j=0; j<5; j++)
       mappath[i][j]=0;
@@ -321,8 +334,8 @@ void play() {
         y = next_y;
         mappath[x][y]=1;
     } else {
-      strip.setPixelColor(getmapN(x, y), red());
-      for (uint8_t j=i+1; j<=barPos; j++)
+      pathred();
+      for (uint8_t j=i+1; j<barPos; j++)
         strip.setPixelColor(getbarN(j), red());
       strip.show();
       state = state_fail;
@@ -344,6 +357,7 @@ void loop() {
   } else if (state == state_play) {
     play();
   } else if (state == state_fail) {
+    update_screen();
   } else if (state == state_success) {
 //    theaterChase(strip.Color(brightness, brightness, brightness));
   }
