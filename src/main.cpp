@@ -250,7 +250,6 @@ bool mapwall[8][5] = {
 bool mappath[8][5];
 uint8_t x;
 uint8_t y;
-uint8_t pathgreen_pos;
 
 bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
   // if next pos is invalid, we return current pos
@@ -301,18 +300,24 @@ void pathred(bool on=true) {
   strip.show();
 }
 
+uint8_t pathgreen_pos;
+
+void pathgreenstep(uint8_t x, uint8_t y, uint8_t pos){
+  strip.setPixelColor(getmapN(x, y), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+}
 void pathgreen() {
   uint8_t pos = 0;
   // hacky loop to follow hardcoded correct path
-  strip.setPixelColor(getmapN(0, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(1, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(2, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(3, 0), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(3, 1), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(3, 2), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(2, 2), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(2, 3), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
-  strip.setPixelColor(getmapN(2, 4), (pos++ == pathgreen_pos) ? green() : green(PATH_REMANENT));
+  // TODO: smoother
+  pathgreenstep(0, 0, pos++);
+  pathgreenstep(1, 0, pos++);
+  pathgreenstep(2, 0, pos++);
+  pathgreenstep(3, 0, pos++);
+  pathgreenstep(3, 1, pos++);
+  pathgreenstep(3, 2, pos++);
+  pathgreenstep(2, 2, pos++);
+  pathgreenstep(2, 3, pos++);
+  pathgreenstep(2, 4, pos++);
   strip.show();
   if (pathgreen_pos++ > 8) pathgreen_pos = 0;
 }
