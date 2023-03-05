@@ -258,6 +258,8 @@ bool mapwall[8][5] = {
   {0,1,1,1,1}
 };
 
+bool mappath[8][5];
+
 bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
   // if next pos is invalid, we return current pos
   if (dir == dirU) {
@@ -282,10 +284,12 @@ bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
 }
 
 #define SKIP 64
+#define REMANENT 128
 void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
   // fade move
   for (uint16_t i=0; i<256; i+=1) {
-    strip.setPixelColor(getmapN(x, y), green((uint8_t)(255-i)));
+    if (255-i >= REMANENT)
+      strip.setPixelColor(getmapN(x, y), green((uint8_t)(255-i)));
     if (i > SKIP) {
       strip.setPixelColor(getmapN(next_x, next_y), green((uint8_t)(i-SKIP)));
     }
@@ -300,10 +304,14 @@ void move(uint8_t x, uint8_t y, uint8_t next_x, uint8_t next_y) {
 void play() {
   uint8_t x = XSTART;
   uint8_t y = YSTART;
+  for (uint8_t i=0; i<8; i++)
+    for (uint8_t j=0; j<5; j++)
+      mappath[i][j]=0;
   strip.clear();
   for (uint8_t i=1; i < barPos; i++)
     strip.setPixelColor(getbarN(i), blue());
   strip.setPixelColor(getmapN(x, y), green());
+  mappath[x][y]=1;
   strip.show();
   for (uint8_t i=0; i < 8; i++) {
     uint8_t next_x, next_y;
@@ -311,6 +319,7 @@ void play() {
         move(x,y,next_x, next_y);
         x = next_x;
         y = next_y;
+        mappath[x][y]=1;
     } else {
       strip.setPixelColor(getmapN(x, y), red());
       for (uint8_t j=i+1; j<=barPos; j++)
