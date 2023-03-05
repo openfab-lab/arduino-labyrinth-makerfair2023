@@ -191,8 +191,8 @@ void button_setup() {
 void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
   digitalWrite(OUTPUT_PIN, LOW);
-  //state = state_init; FIXME:
-  state = state_enter_program;
+  state = state_init;
+//  state = state_enter_program;
   Serial.begin(115200);
   brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
   if (brightness < BRIGHTNESS_MIN) {
@@ -201,9 +201,7 @@ void setup() {
   }
   strip.begin();
   strip.show();            // Turn OFF all pixels ASAP
-//  strip.setBrightness(brightness);
   button_setup();
-  Serial.println("Started...");
 }
 
 void button_loop() {
@@ -244,13 +242,6 @@ bool mapwall[8][5] = {
   {0,1,0,1,0},
   {0,1,0,0,0},
   {0,1,1,1,1}
-
-
-  // {0,0,0,0,0,0,0,0},
-  // {1,1,1,0,1,1,1,1},
-  // {1,1,0,0,0,0,0,1},
-  // {0,0,0,1,1,1,0,1},
-  // {0,1,0,0,0,0,0,1}
 };
 
 bool next_pos(uint8_t x, uint8_t y, dirType dir, uint8_t *nxp, uint8_t *nyp) {
