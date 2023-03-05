@@ -313,7 +313,8 @@ void play() {
         y = next_y;
     } else {
       strip.setPixelColor(getmapN(x, y), red());
-      strip.setPixelColor(getbarN(i+1), red());
+      for (uint8_t j=i+1; j<=barPos; j++)
+        strip.setPixelColor(getbarN(j), red());
       strip.show();
       state = state_fail;
       return;
