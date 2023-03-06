@@ -10,7 +10,7 @@ void(* softReset) (void) = 0;
 #define BUTTON_RIGHT_PIN  5
 #define BUTTON_GO_PIN     6
 #define BUTTON_START_PIN  8 // grounded reeds
-#define OUTPUT_PIN        9 // to next game
+#define FINAL_LED_PIN     9
 Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 #define DEBUG_BUTTONS 0
 
@@ -152,14 +152,11 @@ void pressedR(Button2& btn) {
 
 void pressedG(Button2& btn) {
   if (DEBUG_BUTTONS) {strip.setPixelColor(getmapN(6,4), 255, 0, 0); strip.show();delay(100);};
-  if (buttonL.isPressed()) {
-    softReset();
-  }
   if (state == state_init) {
     if (buttonR.isPressed() && buttonU.isPressed() &&
     (! buttonD.isPressed()) && (! buttonL.isPressed())) {
       update_state(state_enter_program);
-    } else if (buttonU.isPressed()) {
+    } else if ((demo > 0) && buttonU.isPressed()) {
       if ((uint16_t)brightness + BRIGHTNESS_STEP <= 255){
         brightness += BRIGHTNESS_STEP;
       } else {
@@ -168,7 +165,7 @@ void pressedG(Button2& btn) {
       EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
   //    Serial.print("brightness:");
   //    Serial.println(brightness);
-    } else if (buttonD.isPressed()) {
+    } else if ((demo > 0) && buttonD.isPressed()) {
       if ((uint16_t)brightness - BRIGHTNESS_STEP >= BRIGHTNESS_MIN){
         brightness -= BRIGHTNESS_STEP;
       } else {
@@ -177,8 +174,13 @@ void pressedG(Button2& btn) {
       EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
   //    Serial.print("brightness:");
   //    Serial.println(brightness);
+    } else if (buttonL.isPressed()) {
+      demo++;
     }
   } else if (state == state_program) {
+    if (buttonL.isPressed()) {
+      softReset();
+    }
     if (barPos > 1) {
       update_state(state_play);
     }
@@ -215,8 +217,8 @@ void button_setup() {
 }
 
 void setup() {
-  pinMode(OUTPUT_PIN, OUTPUT);
-  digitalWrite(OUTPUT_PIN, LOW);
+  pinMode(FINAL_LED_PIN, OUTPUT);
+  digitalWrite(FINAL_LED_PIN, LOW);
   update_state(state_init);
   demo = 0;
 //  update_state(state_enter_program);
@@ -379,17 +381,122 @@ void play() {
   pathTime = millis();
   update_state(state_success);
   pathgreen_pos = 0;
-  digitalWrite(OUTPUT_PIN, HIGH);
+  digitalWrite(FINAL_LED_PIN, HIGH);
 }
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  if(WheelPos < 85) {
+    //  return strip.Color(0, (intensity*brightness) >> 8, 0);
+
+   return strip.Color((WheelPos * 3 *brightness) >> 8, ((255 - WheelPos * 3)*brightness) >> 8, 0);
+  } else if(WheelPos < 170) {
+   WheelPos -= 85;
+   return strip.Color(((255 - WheelPos * 3)*brightness) >> 8, 0, (WheelPos * 3*brightness) >> 8);
+  } else {
+   WheelPos -= 170;
+   return strip.Color(0, (WheelPos * 3*brightness) >> 8, ((255 - WheelPos * 3)*brightness) >> 8);
+  }
+}
+
+// heartbeat: inspired from Firionus, cf https://forum.arduino.cc/t/making-a-heartbeat/306084
+//Algorithm for fading LEDs via keyframes
+//including linearity-correction (cubic)
+
+// total cycle in ms
+#define HB_FADE 480
+#define HB_IMIN 80
+#define HB_HMIN 190
+#define HB_HMAX 200
+uint8_t frames [][3] = {
+  //first column: time of duration in percent
+  //second column: intensity 0-255
+    {  0, HB_IMIN},
+    { 11, 255},
+    { 20, HB_IMIN},
+    { 36, HB_IMIN},
+    { 48, 150},
+    { 66, HB_IMIN},
+    {100, HB_IMIN}
+  };
+
+// void heartbeat_fill(uint8_t intensity) {
+//   uint32_t c = Wheel(120-(intensity/4));
+//   strip.fill(strip.ColorHSV(c,255,intensity));
+//   strip.show();
+// }
+
+void heartbeat_fill(uint8_t intensity) {
+  for (uint8_t x=0; x<8; x++)
+    for (uint8_t y=0; y<8; y++) {
+      uint8_t i = intensity;
+      float cx = x-3.5;
+      float cy = y-3.5;
+      float d2 = cx*cx+cy*cy;
+      uint8_t beatdiam = 20; // max 24.5
+      if (d2 < beatdiam)
+        i = ((i - 5) * (beatdiam - d2) / beatdiam) + 5;
+      else
+        i = 5;
+      uint32_t c = Wheel(120-(i/5));
+      strip.setPixelColor(y + (x * 8), strip.ColorHSV(c,255,i));
+    }
+  strip.show();
+}
+
+uint8_t heartbeat_c = 0;
+void heartbeat() {
+  float Tp1 = frames[heartbeat_c][0] / 100.0 * HB_FADE;
+  float Ip1 = frames[heartbeat_c][1];
+  if (heartbeat_c++ >= (sizeof(frames) / sizeof(frames[0]))) heartbeat_c=0;
+  float Tp2 = frames[heartbeat_c][0] / 100.0 * HB_FADE; //get the 2 points
+  float Ip2 = frames[heartbeat_c][1];
+  float m = (Ip2 - Ip1) / (Tp2 - Tp1); //calculate slope of line
+  if (Ip1 < Ip2) //if fade gets brighter
+  {
+    float T0 = (m * Tp1 - Ip1) / m;
+    float Tmax = (255 + m * Tp1 - Ip1) / m;
+    float k = 170 / pow(Tmax - T0, 3); //calculating constants of the cubic function
+    for (float t=Tp1; t <= Tp2; t+=2) //while second point is not reached rewrite the intensity every millisecond
+    {
+      uint8_t i = k * pow(t - T0, 3);
+      heartbeat_fill(i);
+//      delay(1);
+      button_loop();
+    }
+  }
+  if (Ip1 > Ip2) //if fade gets darker
+  {
+    float Tmax = (m * Tp1 - Ip1) / m;
+    float T0 = (255 + m * Tp1 - Ip1) / m;
+    float k = 170 / pow(Tmax - T0, 3); //calc constants
+    for (float t=Tp1; t <= Tp2; t+=2)
+    {
+      uint8_t i = k * pow(Tmax - t, 3);
+      heartbeat_fill(i);
+//      delay(1);
+      button_loop();
+    }
+  }
+}
+
 
 void update_screen_state_init() {
   switch(demo) {
     case 0:
-      // black screen
+      strip.clear();
+      strip.show();
       break;
     case 1:
       rainbow();
       break;
+    case 2:
+      heartbeat();
+      break;
+    default:
+      demo = 0;
+    break;
   }
 }
 

@@ -2,9 +2,10 @@
 
 Program a path up to 8 steps (correct one is 8 steps)
 
-* Init mode: *TODO* black
+* Init mode: black
   * hidden buttons commands to set brightness (stored in eeprom) and to start game
-  * *TODO:* cycle demo modes + black with LEFT+GO. Prevent UP/DOWN on black screen
+  * cycle demo modes + black with LEFT+GO. Prevent UP/DOWN on black screen
+  * TODO: labyrinth random explorer
 * Programming mode when input grounded (with reeds from face 2)
   * Hidden reset: maintain LEFT then press GO
   * START Led blinking green with fading
@@ -39,7 +40,7 @@ During init phase:
 * maintain UP       then press GO  => brightness up   (and store in eeprom)
 * maintain DOWN     then press GO  => brightness down (and store in eeprom)
 * maintain UP+RIGHT then press GO  => bypass waiting for previous game
-* maintain LEFT     then press GO  => cycle demos (TODO)
+* maintain LEFT     then press GO  => cycle through demos
 
 During programmation:
 * maintain LEFT     then press GO  => reset
