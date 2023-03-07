@@ -20,9 +20,9 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 // - NeoPixel strip's DATA-IN should pass through a 300-500 OHM RESISTOR.
 #define LED_PIN    7
 #define LED_COUNT 64
-#define BRIGHTNESS_MIN 32
+#define BRIGHTNESS_MIN 10
 #define BRIGHTNESS_DEFAULT 200
-#define BRIGHTNESS_STEP 20
+#define BRIGHTNESS_STEP 15
 #define BRIGHTNESS_ADDRESS 0
 #define FADE_MIN 20
 #define BAR_BLINK 300
@@ -34,29 +34,28 @@ Button2 buttonU, buttonD, buttonL, buttonR, buttonG, buttonS;
 // 10 mins:
 #define TIMEOUT 600000
 #define FAIL_REPLAY_TIME 3000
-uint8_t brightness = BRIGHTNESS_DEFAULT;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 uint32_t red(uint8_t intensity = 255) {
-  return strip.Color((intensity*brightness) >> 8, 0, 0);
+  return strip.Color(intensity, 0, 0);
 }
 
 uint32_t green(uint8_t intensity = 255) {
-  return strip.Color(0, (intensity*brightness) >> 8, 0);
+  return strip.Color(0, intensity, 0);
 }
 
 uint32_t blue(uint8_t intensity = 255) {
-  return strip.Color(0, 0, (intensity*brightness) >> 8);
+  return strip.Color(0, 0, intensity);
 }
 
 uint32_t white(uint8_t intensity = 255) {
-  return strip.Color((intensity*brightness) >> 9, (intensity*brightness) >> 9, (intensity*brightness) >> 9);
+  return strip.Color(intensity/2, intensity/2, intensity/2);
 }
 
 uint16_t firstPixelHue = 0;
 void rainbow() {
-  strip.rainbow(firstPixelHue, 1, 255, brightness, true);
+  strip.rainbow(firstPixelHue, 1, 255, 180);
   strip.show();
   firstPixelHue -= 256;
 }
@@ -115,7 +114,6 @@ void update_state(stateType new_state) {
 void enter_program() {
   strip.clear();
   strip.show();
-  delay(500);
   barPos = 1;
   barUp = true;
   barTime = millis();
@@ -162,23 +160,23 @@ void pressedG(Button2& btn) {
     (! buttonD.isPressed()) && (! buttonL.isPressed())) {
       update_state(state_enter_program);
     } else if ((demo > 0) && buttonU.isPressed()) {
-      if ((uint16_t)brightness + BRIGHTNESS_STEP <= 255){
-        brightness += BRIGHTNESS_STEP;
+      uint8_t b = strip.getBrightness();
+      if ((int16_t)b + BRIGHTNESS_STEP <= 255){
+        b += BRIGHTNESS_STEP;
       } else {
-        brightness = 255;
+        b = 255;
       }
-      EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
-  //    Serial.print("brightness:");
-  //    Serial.println(brightness);
+      strip.setBrightness(b);
+      EEPROM.write(BRIGHTNESS_ADDRESS, b);
     } else if ((demo > 0) && buttonD.isPressed()) {
-      if ((uint16_t)brightness - BRIGHTNESS_STEP >= BRIGHTNESS_MIN){
-        brightness -= BRIGHTNESS_STEP;
+      uint8_t b = strip.getBrightness();
+      if ((int16_t)b - BRIGHTNESS_STEP >= BRIGHTNESS_MIN){
+        b -= BRIGHTNESS_STEP;
       } else {
-        brightness = BRIGHTNESS_MIN;
+        b = BRIGHTNESS_MIN;
       }
-      EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
-  //    Serial.print("brightness:");
-  //    Serial.println(brightness);
+      strip.setBrightness(b);
+      EEPROM.write(BRIGHTNESS_ADDRESS, b);
     } else if (buttonL.isPressed()) {
       demo++;
       demo_change = true;
@@ -229,12 +227,13 @@ void setup() {
   demo = 0;
 //  update_state(state_enter_program);
   Serial.begin(115200);
-  brightness = EEPROM.read(BRIGHTNESS_ADDRESS);
-  if (brightness < BRIGHTNESS_MIN) {
-    brightness = BRIGHTNESS_DEFAULT;
-    EEPROM.write(BRIGHTNESS_ADDRESS, brightness);
-  }
   strip.begin();
+  uint8_t b = EEPROM.read(BRIGHTNESS_ADDRESS);
+  if (b < BRIGHTNESS_MIN) {
+    b = BRIGHTNESS_DEFAULT;
+    EEPROM.write(BRIGHTNESS_ADDRESS, b);
+  }
+  strip.setBrightness(b);
   strip.show();            // Turn OFF all pixels ASAP
   button_setup();
 }
@@ -394,15 +393,15 @@ void play() {
 // The colours are a transition r - g - b - back to r.
 uint32_t Wheel(byte WheelPos) {
   if(WheelPos < 85) {
-    //  return strip.Color(0, (intensity*brightness) >> 8, 0);
+    //  return green(intensity);
 
-   return strip.Color((WheelPos * 3 *brightness) >> 8, ((255 - WheelPos * 3)*brightness) >> 8, 0);
+   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
   } else if(WheelPos < 170) {
    WheelPos -= 85;
-   return strip.Color(((255 - WheelPos * 3)*brightness) >> 8, 0, (WheelPos * 3*brightness) >> 8);
+   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   } else {
    WheelPos -= 170;
-   return strip.Color(0, (WheelPos * 3*brightness) >> 8, ((255 - WheelPos * 3)*brightness) >> 8);
+   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
 
@@ -545,7 +544,8 @@ void autoplay() {
 
 void update_screen_state_init() {
   if (demo_change) {
-    strip.fill(strip.Color(0, 0, 0));
+    strip.clear();
+    strip.show();
     demo_change = false;
   }
   switch(demo) {
