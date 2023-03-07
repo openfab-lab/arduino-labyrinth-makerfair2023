@@ -50,6 +50,10 @@ uint32_t blue(uint8_t intensity = 255) {
   return strip.Color(0, 0, (intensity*brightness) >> 8);
 }
 
+uint32_t white(uint8_t intensity = 255) {
+  return strip.Color((intensity*brightness) >> 9, (intensity*brightness) >> 9, (intensity*brightness) >> 9);
+}
+
 uint16_t firstPixelHue = 0;
 void rainbow() {
   strip.rainbow(firstPixelHue, 1, 255, brightness, true);
@@ -85,6 +89,7 @@ enum stateType {
 
 stateType state;
 uint8_t demo;
+bool demo_change = true;
 
 enum dirType {
   dirU,
@@ -176,6 +181,7 @@ void pressedG(Button2& btn) {
   //    Serial.println(brightness);
     } else if (buttonL.isPressed()) {
       demo++;
+      demo_change = true;
     }
   } else if (state == state_program) {
     if (buttonL.isPressed()) {
@@ -481,11 +487,69 @@ void heartbeat() {
   }
 }
 
+dirType autoplay_dir = dirL;
+void autoplay() {
+  uint8_t next_x = x;
+  uint8_t next_y = y;
+  dirType dirs[4] = {dirEmpty, dirEmpty, dirEmpty, dirEmpty};
+  uint8_t idirs = 0;
+  // Open paths?
+  if ((autoplay_dir != dirD) && (y < 4) && (!mapwall[x][y+1])) {
+    dirs[idirs++] = dirU;
+  }
+  if ((autoplay_dir != dirU) && (y > 0) && (!mapwall[x][y-1])) {
+    dirs[idirs++] = dirD;
+  }
+  if ((autoplay_dir != dirL) && (x < 7) && (!mapwall[x+1][y])) {
+    dirs[idirs++] = dirR;
+  }
+  if ((autoplay_dir != dirR) && (x > 0) && (!mapwall[x-1][y])) {
+    dirs[idirs++] = dirL;
+  }
+  // Last resort: backwards
+  if (idirs==0) {
+    if (autoplay_dir == dirU) dirs[idirs++] = dirD;
+    if (autoplay_dir == dirD) dirs[idirs++] = dirU;
+    if (autoplay_dir == dirL) dirs[idirs++] = dirR;
+    if (autoplay_dir == dirR) dirs[idirs++] = dirL;
+  }
+  // Choose one path
+  autoplay_dir = dirs[millis()%idirs];
+  if (autoplay_dir == dirU) {
+    next_y = y + 1;
+  } else if (autoplay_dir == dirD) {
+    next_y = y - 1;
+  } else if (autoplay_dir == dirL) {
+    next_x = x - 1;
+  } else if (autoplay_dir == dirR) {
+    next_x = x + 1;
+  }
+  // fast fade move
+  for (uint16_t i=0; i<256; i+=3) {
+    if (255-i >= 0)
+      strip.setPixelColor(getmapN(x, y), white((uint8_t)(255-i)));
+    if (i > FADE_SKIP) {
+      strip.setPixelColor(getmapN(next_x, next_y), white((uint8_t)(i-FADE_SKIP)));
+    }
+    strip.show();
+    button_loop();
+  }
+  for (uint16_t i=0; i<FADE_SKIP; i+=3) {
+    strip.setPixelColor(getmapN(next_x, next_y), white((uint8_t)(i+256-FADE_SKIP)));
+    strip.show();
+    button_loop();
+  }
+  x = next_x;
+  y = next_y;
+}
 
 void update_screen_state_init() {
+  if (demo_change) {
+    strip.fill(strip.Color(0, 0, 0));
+    demo_change = false;
+  }
   switch(demo) {
     case 0:
-      strip.clear();
       strip.show();
       break;
     case 1:
@@ -494,7 +558,11 @@ void update_screen_state_init() {
     case 2:
       heartbeat();
       break;
+    case 3:
+      autoplay();
+      break;
     default:
+      demo_change = true;
       demo = 0;
     break;
   }
