@@ -220,24 +220,6 @@ void button_setup() {
   buttonS.setPressedHandler(pressedS);
 }
 
-void setup() {
-  pinMode(FINAL_LED_PIN, OUTPUT);
-  digitalWrite(FINAL_LED_PIN, LOW);
-  update_state(state_init);
-  demo = 0;
-//  update_state(state_enter_program);
-  Serial.begin(115200);
-  strip.begin();
-  uint8_t b = EEPROM.read(BRIGHTNESS_ADDRESS);
-  if (b < BRIGHTNESS_MIN) {
-    b = BRIGHTNESS_DEFAULT;
-    EEPROM.write(BRIGHTNESS_ADDRESS, b);
-  }
-  strip.setBrightness(b);
-  strip.show();            // Turn OFF all pixels ASAP
-  button_setup();
-}
-
 void button_loop() {
   buttonU.loop();
   buttonD.loop();
@@ -389,23 +371,8 @@ void play() {
   digitalWrite(FINAL_LED_PIN, HIGH);
 }
 
-// Input a value 0 to 255 to get a color value.
-// The colours are a transition r - g - b - back to r.
-uint32_t Wheel(byte WheelPos) {
-  if(WheelPos < 85) {
-    //  return green(intensity);
-
-   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-  } else if(WheelPos < 170) {
-   WheelPos -= 85;
-   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-  } else {
-   WheelPos -= 170;
-   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
-  }
-}
-
-// heartbeat: inspired from Firionus, cf https://forum.arduino.cc/t/making-a-heartbeat/306084
+/////// heartbeat demo
+// modified version of Firionus, cf https://forum.arduino.cc/t/making-a-heartbeat/306084
 //Algorithm for fading LEDs via keyframes
 //including linearity-correction (cubic)
 
@@ -425,6 +392,22 @@ uint8_t frames [][3] = {
     { 66, HB_IMIN},
     {100, HB_IMIN}
   };
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  if(WheelPos < 85) {
+    //  return green(intensity);
+
+   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  } else if(WheelPos < 170) {
+   WheelPos -= 85;
+   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  } else {
+   WheelPos -= 170;
+   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+}
 
 // void heartbeat_fill(uint8_t intensity) {
 //   uint32_t c = Wheel(120-(intensity/4));
@@ -485,7 +468,9 @@ void heartbeat() {
     }
   }
 }
+/////// end of heartbeat demo
 
+/////// labyrinth explorer demo
 dirType autoplay_dir = dirL;
 void autoplay() {
   uint8_t next_x = x;
@@ -541,6 +526,133 @@ void autoplay() {
   x = next_x;
   y = next_y;
 }
+/////// end of labyrinth explorer demo
+
+/////// bonfire demo
+// modified & simplified version of https://github.com/toggledbits/MatrixFireFast
+#define FIREBRIGHT 64       /* brightness; min 0 - 255 max -- high brightness requires a hefty power supply! Start low! */
+#define FIREFPS 15          /* Refresh rate */
+#define FLAREROWS 2         /* number of rows (from bottom) allowed to flare */
+#define MAXFLARE 3          /* max number of simultaneous flares */
+#define FLARECHANCE 50      /* chance (%) of a new flare (if there's room) */
+#define FLAREDECAY 35       /* decay rate of flare radiation; 14 is good */
+
+/* This is the map of colors from coolest (black) to hottest. Want blue flames? Go for it! */
+const uint32_t fire_colors[] = {
+  0x000000,
+  0x100000,
+  0x300000,
+  0x600000,
+  0x800000,
+  0xA00000,
+  0xC02000,
+  0xC04000,
+  0xC06000,
+  0xC08000,
+  0x807080
+};
+const uint8_t NCOLORS = (sizeof(fire_colors)/sizeof(fire_colors[0]));
+
+uint8_t pix[8][8];
+uint8_t nflare = 0;
+uint32_t flare[MAXFLARE];
+
+uint16_t pos( uint16_t col, uint16_t row ) {
+  return row + col * 8;
+}
+
+uint32_t isqrt(uint32_t n) {
+  if ( n < 2 ) return n;
+  uint32_t s = isqrt(n >> 2) << 1;
+  uint32_t l = s + 1;
+  return (l*l > n) ? s : l;
+}
+
+// Set pixels to intensity around flare
+void glow( int x, int y, int z ) {
+  int b = z * 10 / FLAREDECAY + 1;
+  for ( int i=(y-b); i<(y+b); ++i ) {
+    for ( int j=(x-b); j<(x+b); ++j ) {
+      if ( i >=0 && j >= 0 && i < (int)8 && j < (int)8 ) {
+        int d = ( FLAREDECAY * isqrt((x-j)*(x-j) + (y-i)*(y-i)) + 5 ) / 10;
+        uint8_t n = 0;
+        if ( z > d ) n = z - d;
+        if ( n > pix[i][j] ) { // can only get brighter
+          pix[i][j] = n;
+        }
+      }
+    }
+  }
+}
+
+unsigned long fire_t = 0; /* keep time */
+void make_fire() {
+  uint16_t i, j;
+  if ( fire_t > millis() ) return;
+  fire_t = millis() + (1000 / FIREFPS);
+
+  // First, move all existing heat points up the display and fade
+  for ( i=8-1; i>0; --i ) {
+    for ( j=0; j<8; ++j ) {
+      uint8_t n = 0;
+      if ( pix[i-1][j] > 0 )
+        n = pix[i-1][j] - 1;
+      pix[i][j] = n;
+    }
+  }
+
+  // Heat the bottom row
+  for ( j=0; j<8; ++j ) {
+    i = pix[0][j];
+    if ( i > 0 ) {
+      pix[0][j] = random(NCOLORS-6, NCOLORS-2);
+    }
+  }
+
+  // flare
+  for ( i=0; i<nflare; ++i ) {
+    int x = flare[i] & 0xff;
+    int y = (flare[i] >> 8) & 0xff;
+    int z = (flare[i] >> 16) & 0xff;
+    glow( x, y, z );
+    if ( z > 1 ) {
+      flare[i] = (flare[i] & 0xffff) | ((uint32_t)(z-1)<<16);
+    } else {
+      // This flare is out
+      for ( int j=i+1; j<nflare; ++j ) {
+        flare[j-1] = flare[j];
+      }
+      --nflare;
+    }
+  }
+  // newflare
+  if ( nflare < MAXFLARE && random(1,101) <= FLARECHANCE ) {
+    int x = random(0, 8);
+    int y = random(0, FLAREROWS);
+    int z = NCOLORS - 1;
+    flare[nflare++] = ((uint32_t)z<<16) | (y<<8) | (x&0xff);
+    glow( x, y, z );
+  }
+
+  // Set and draw
+  for ( i=0; i<8; ++i ) {
+    for ( j=0; j<8; ++j ) {
+      strip.setPixelColor(pos(j,i), fire_colors[pix[i][j]]);
+    }
+  }
+  strip.show();
+}
+
+void setup_fire(){
+  for ( uint16_t i=0; i<8; ++i ) {
+    for ( uint16_t j=0; j<8; ++j ) {
+      if ( i == 0 ) pix[i][j] = NCOLORS - 1;
+      else pix[i][j] = 0;
+    }
+  }
+}
+
+/////// end bonfire demo
 
 void update_screen_state_init() {
   if (demo_change) {
@@ -560,6 +672,9 @@ void update_screen_state_init() {
       break;
     case 3:
       autoplay();
+      break;
+    case 4:
+      make_fire();
       break;
     default:
       demo_change = true;
@@ -614,6 +729,25 @@ void update_screen_state_success() {
   } else {
     softReset();
   }
+}
+
+void setup() {
+  pinMode(FINAL_LED_PIN, OUTPUT);
+  digitalWrite(FINAL_LED_PIN, LOW);
+  update_state(state_init);
+  demo = 0;
+//  update_state(state_enter_program);
+  Serial.begin(115200);
+  strip.begin();
+  uint8_t b = EEPROM.read(BRIGHTNESS_ADDRESS);
+  if (b < BRIGHTNESS_MIN) {
+    b = BRIGHTNESS_DEFAULT;
+    EEPROM.write(BRIGHTNESS_ADDRESS, b);
+  }
+  strip.setBrightness(b);
+  strip.show();            // Turn OFF all pixels ASAP
+  button_setup();
+  setup_fire();
 }
 
 void loop() {
