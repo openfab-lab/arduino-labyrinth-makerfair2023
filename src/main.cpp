@@ -202,21 +202,23 @@ void pressedS(Button2& btn) {
 void button_setup() {
   buttonU.setDebounceTime(DEBOUNCE_TIME);
   buttonU.begin(BUTTON_UP_PIN);
-  buttonU.setPressedHandler(pressedU);
   buttonD.setDebounceTime(DEBOUNCE_TIME);
   buttonD.begin(BUTTON_DOWN_PIN);
-  buttonD.setPressedHandler(pressedD);
   buttonL.setDebounceTime(DEBOUNCE_TIME);
   buttonL.begin(BUTTON_LEFT_PIN);
-  buttonL.setPressedHandler(pressedL);
   buttonR.setDebounceTime(DEBOUNCE_TIME);
   buttonR.begin(BUTTON_RIGHT_PIN);
-  buttonR.setPressedHandler(pressedR);
   buttonG.setDebounceTime(DEBOUNCE_TIME);
   buttonG.begin(BUTTON_GO_PIN);
-  buttonG.setPressedHandler(pressedG);
   buttonS.setDebounceTime(DEBOUNCE_TIME);
   buttonS.begin(BUTTON_START_PIN);
+  // wait for Go button to be released
+  while(buttonG.isPressedRaw());
+  buttonU.setPressedHandler(pressedU);
+  buttonD.setPressedHandler(pressedD);
+  buttonL.setPressedHandler(pressedL);
+  buttonR.setPressedHandler(pressedR);
+  buttonG.setPressedHandler(pressedG);
   buttonS.setPressedHandler(pressedS);
 }
 
