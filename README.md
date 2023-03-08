@@ -1,3 +1,15 @@
+## Wiring
+
+* Button Up:     NC - GND; NO - R180* - 5V; C - D2
+* Button Down:   NC - GND; NO - R820** - 5V; C - D3
+* Button Left:   NC - GND; NO - R820** - 5V; C - D4
+* Button Right:  NC - GND; NO - R820** - 5V; C - D5
+* Button Go:     NC - GND; NO - R820** - 5V; C - D6
+(*) faulty button, need stronger pull-up
+(**) common R820 rail
+* Matrix 64RGB:  V+ - 5V; V- - GND; V- - 220uF - V+; In - R330 - D7
+* Face2 input:   GND -reeds - D8
+* Final LED:     GND -LED - R - D9
 ## Algo
 
 Program a path up to 8 steps (correct one is 8 steps)
