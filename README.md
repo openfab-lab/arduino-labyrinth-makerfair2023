@@ -4,8 +4,8 @@
 * Button Down:   NC - GND; NO - R820** - 5V; C - D3
 * Button Left:   NC - GND; NO - R820** - 5V; C - D4
 * Button Right:  NC - GND; NO - R820** - 5V; C - D5
-* Button Go:     NC - GND; NO - R820** - 5V; C - D6
-(*) faulty button, need stronger pull-up
+* Button Go:     NC - GND; NO - R820** - 5V; C - D6  
+(*) faulty button, need stronger pull-up  
 (**) common R820 rail
 * Matrix 64RGB:  V+ - 5V; V- - GND; V- - 220uF - V+; In - R330 - D7
 * Face2 input:   GND -reeds - D8
@@ -40,12 +40,6 @@ Program a path up to 8 steps (correct one is 8 steps)
 * Fail mode:
   * blink path in red a few times then move to programming mode after 3 s
 
-## Questions
-
-* success/fail : +timeout for reset ? how much time?
-* success: how output is used for next game? 5V if success is ok? Must be on for how long?
-* fail: ok with reset or should we move to start_enter_program? (can ppl retry without redoing previous game?)
-
 ## Hidden buttons commands
 
 During init phase:
@@ -64,6 +58,6 @@ Consumption:
 
 UP button faulty, very strange, kind of 1-10kohms pull-down (between center and NO), I've put a strong external pull-up of 180 ohms.
 
-Added extra pull-up rail on the other buttons, with 820 ohms.
+Added extra pull-up rail on the other buttons just in case, with 820 ohms.
 
 No pull-up on the start input so far (D8)
